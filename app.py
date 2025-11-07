@@ -92,6 +92,6 @@ df['priority_score'] = (df['scaled_transaction_comp'] * transaction_w
 df = df.sort_values("priority_score", ascending=False)
 
 st.subheader("Top items to process")
-st.dataframe(df[["ops_item_id","client_id","invoice_id","amount","status","blocks_invoicing",
+st.dataframe(df[["ops_item_id","client_id","invoice_id","amount","invoice_status","blocks_invoicing",
                 "priority_score",]].head(20))
 
