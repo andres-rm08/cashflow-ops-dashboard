@@ -26,6 +26,10 @@ else:
     df["invoice_status"] = df.get("status_x", "open")
 df["is_overdue"] = (df["invoice_status"] == "overdue").astype(int) * 100
 df['amount'] = df['amount'].fillna(0)
+df['due_date'] = pd.to_datetime(df['due_date'], errors='coerce')
+df['days_past_due'] = (today - df['due_date']).dt.days
+df['days_past_due'] = df['days_past_due'].fillna(0)
+df['days_past_due'] = df['days_past_due'].clip(lower=0) 
 df['sla_due'] = pd.to_datetime(df['sla_due'], errors='coerce')
 df["days_to_sla"] = (df["sla_due"] - today).dt.days
 df["days_to_sla"] = df["days_to_sla"].fillna(999)
@@ -33,6 +37,22 @@ df["sla_risk"] = (df["days_to_sla"] <= 0).astype(int) * 100
 df["blocks_invoicing"] = df["blocks_invoicing"].fillna(0).astype(int)
 df["missing_fields"] = df["missing_fields"].fillna(0)
 df["age_days"] = df["age_days"].fillna(0)
+
+def get_aging_bucket(days):
+    if days == 0:
+        return "Current"
+    elif days <= 30:
+        return "0-30 days"
+    elif days <= 60:
+        return "31-60 days"
+    elif days <= 90:
+        return "61-90 days"
+    else:
+        return "90+ days"
+
+df['aging_bucket'] = df['days_past_due'].apply(get_aging_bucket)
+df['has_exception'] = ((df['blocks_invoicing'] == 1) | (df['missing_fields'] > 0)).astype(int)
+exception_rate = df['has_exception'].mean() * 100
 
 weights = {'A': 3, 'B': 2, 'C': 1}
 df['tier_raw_score'] = df['tier'].map(weights).fillna(1)
@@ -72,6 +92,31 @@ with col4:
     pct_overdue = (df["is_overdue"] == 100).mean() * 100
     st.metric("% items overdue", f"{pct_overdue:,.1f}%")
 
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    st.metric("Total AR in queue", f"${df['amount'].sum():,.0f}")
+with col2:
+    overdue_amount = df.loc[df["is_overdue"] == 100, "amount"].sum()
+    st.metric("Past-due AR", f"${overdue_amount:,.0f}")
+with col3:
+    blocked_amount = df.loc[df["blocks_invoicing"] == 1, "amount"].sum()
+    st.metric("AR on billing hold", f"${blocked_amount:,.0f}")
+with col4:
+    pct_overdue = (df["is_overdue"] == 100).mean() * 100
+    st.metric("% items overdue", f"{pct_overdue:,.1f}%")
+with col5:
+    st.metric("Exception rate", f"{exception_rate:.1f}%")
+
+st.subheader("AR Aging Analysis")
+aging_summary = df.groupby('aging_bucket').agg({
+    'amount': 'sum',
+    'invoice_id': 'count'
+}).rename(columns={'invoice_id': 'count'})
+
+bucket_order = ['Current', '0-30 days', '31-60 days', '61-90 days', '90+ days']
+aging_summary = aging_summary.reindex([b for b in bucket_order if b in aging_summary.index], fill_value=0)
+st.dataframe(aging_summary.style.format({'amount': '${:,.0f}', 'count': '{:,.0f}'}))
+
 st.subheader("Policy weights")
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -91,7 +136,22 @@ df['priority_score'] = (df['scaled_transaction_comp'] * transaction_w
 
 df = df.sort_values("priority_score", ascending=False)
 
+top_20 = df.head(20)
+top_20_ar = top_20['amount'].sum()
+total_ar = df['amount'].sum()
+top_20_pct_ar = (top_20_ar / total_ar * 100) if total_ar > 0 else 0
+top_20_count = len(top_20)
+total_count = len(df)
+top_20_pct_count = (top_20_count / total_count * 100) if total_count > 0 else 0
+
 st.subheader("Top items to process")
 st.dataframe(df[["ops_item_id","client_id","invoice_id","amount","invoice_status","blocks_invoicing",
                 "priority_score",]].head(20))
+
+csv = df[["ops_item_id","client_id","invoice_id","amount","status","blocks_invoicing",
+          "priority_score",]].head(20).to_csv(index=False)
+
+st.download_button(label="Download top 20 items as CSV", data=csv,
+    file_name="top_items_to_process.csv",
+    mime="text/csv")
 
