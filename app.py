@@ -18,7 +18,13 @@ def load_data():
 
 df = load_data()
 
-df['is_overdue'] = (df['status'] == 'overdue').astype(int) * 100
+if "status_y" in df.columns:
+    df["invoice_status"] = df["status_y"]
+elif "status" in df.columns:
+    df["invoice_status"] = df["status"]
+else:
+    df["invoice_status"] = df.get("status_x", "open")
+df["is_overdue"] = (df["invoice_status"] == "overdue").astype(int) * 100
 df['amount'] = df['amount'].fillna(0)
 df['sla_due'] = pd.to_datetime(df['sla_due'], errors='coerce')
 df["days_to_sla"] = (df["sla_due"] - today).dt.days
