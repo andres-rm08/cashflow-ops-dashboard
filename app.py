@@ -79,19 +79,6 @@ df['scaled_client_comp'] = scale(df['client_comp'])
 
 st.title("Cashflow-Aware Operations Prioritization Dashboard")
 
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("Total AR in queue", f"${df['amount'].sum():,.0f}")
-with col2:
-    overdue_amount = df.loc[df["is_overdue"] == 100, "amount"].sum()
-    st.metric("Past-due AR", f"${overdue_amount:,.0f}")
-with col3:
-    blocked_amount = df.loc[df["blocks_invoicing"] == 1, "amount"].sum()
-    st.metric("AR on billing hold", f"${blocked_amount:,.0f}")
-with col4:
-    pct_overdue = (df["is_overdue"] == 100).mean() * 100
-    st.metric("% items overdue", f"{pct_overdue:,.1f}%")
-
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     st.metric("Total AR in queue", f"${df['amount'].sum():,.0f}")
@@ -148,8 +135,12 @@ st.subheader("Top items to process")
 st.dataframe(df[["ops_item_id","client_id","invoice_id","amount","invoice_status","blocks_invoicing",
                 "priority_score",]].head(20))
 
-csv = df[["ops_item_id","client_id","invoice_id","amount","status","blocks_invoicing",
-          "priority_score",]].head(20).to_csv(index=False)
+csv_check = ["ops_item_id","client_id","invoice_id","amount","invoice_status","blocks_invoicing",
+          "priority_score",]
+
+csv_check = [c for c in csv_check if c in df.columns]
+
+csv = df[csv_check].head(20).to_csv(index=False)
 
 st.download_button(label="Download top 20 items as CSV", data=csv,
     file_name="top_items_to_process.csv",
@@ -158,11 +149,14 @@ st.download_button(label="Download top 20 items as CSV", data=csv,
 st.subheader("Power BI Export")
 st.write("Download the complete processed dataset for Power BI analysis:")
 
-pbi_df = df[[
-    "ops_item_id", "client_id", "invoice_id", "amount", 
+pbi_check =["ops_item_id", "client_id", "invoice_id", "amount", 
     "invoice_status", "blocks_invoicing", "priority_score",
     "aging_bucket", "days_past_due", "sla_due", "days_to_sla",
-    "owner", "age_days", "missing_fields", "tier"]].copy()
+    "owner", "age_days", "missing_fields", "tier"]
+
+pbi_check = [c for c in pbi_check if c in df.columns]
+
+pbi_df = df[pbi_check].copy()
 
 pbi_csv = pbi_df.to_csv(index=False)
 st.download_button(
@@ -170,4 +164,3 @@ st.download_button(
     data=pbi_csv,
     file_name="ar_prioritization_dataset.csv",
     mime="text/csv")
-
