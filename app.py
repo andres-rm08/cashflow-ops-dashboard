@@ -155,3 +155,19 @@ st.download_button(label="Download top 20 items as CSV", data=csv,
     file_name="top_items_to_process.csv",
     mime="text/csv")
 
+st.subheader("Power BI Export")
+st.write("Download the complete processed dataset for Power BI analysis:")
+
+pbi_df = df[[
+    "ops_item_id", "client_id", "invoice_id", "amount", 
+    "invoice_status", "blocks_invoicing", "priority_score",
+    "aging_bucket", "days_past_due", "sla_due", "days_to_sla",
+    "owner", "age_days", "missing_fields", "tier"]].copy()
+
+pbi_csv = pbi_df.to_csv(index=False)
+st.download_button(
+    label="Download full dataset for Power BI (CSV)",
+    data=pbi_csv,
+    file_name="ar_prioritization_dataset.csv",
+    mime="text/csv")
+
