@@ -146,8 +146,8 @@ st.download_button(label="Download top 20 items as CSV", data=csv,
     file_name="top_items_to_process.csv",
     mime="text/csv")
 
-st.subheader("Power BI Export")
-st.write("Download the complete processed dataset for Power BI analysis:")
+st.subheader("BI Export")
+st.write("Download the complete processed dataset for BI analysis:")
 
 pbi_check =["ops_item_id", "client_id", "invoice_id", "amount", 
     "invoice_status", "blocks_invoicing", "priority_score",
